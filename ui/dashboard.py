@@ -2,14 +2,21 @@ import streamlit as st
 import requests
 import pandas as pd
 import numpy as np
+import os
 
-# Configuration
-API_URL = "http://127.0.0.1:8000"
+# SENIOR UPGRADE: 
+# If running in Docker, use the internal network name 'http://api:8000'
+# If running locally, use 'http://127.0.0.1:8000'
+API_URL = os.getenv("API_URL", "http://127.0.0.1:8000")
 
 st.set_page_config(page_title="Bolt Pricing Simulator", layout="wide")
 
-st.title("⚡ Dynamic Pricing Engine")
+st.title("⚡ Bolt-Style Dynamic Pricing Engine")
 st.markdown("### H3 Spatial Indexing & Demand Prediction")
+
+# Debugging Helper (Optional - helps you see where it's trying to connect)
+with st.expander("Debug Connection Info"):
+    st.write(f"Connecting to API at: `{API_URL}`")
 
 col1, col2 = st.columns([1, 2])
 
@@ -24,6 +31,7 @@ with col1:
     if st.button("Check Price", type="primary"):
         try:
             payload = {"lat": input_lat, "lon": input_lon}
+            # Use the dynamic URL
             response = requests.post(f"{API_URL}/predict_fare", json=payload)
             
             if response.status_code == 200:
@@ -43,7 +51,7 @@ with col1:
                 else:
                     st.success("✅ Standard Pricing Active")
             else:
-                st.error("Error connecting to pricing engine.")
+                st.error(f"API Error: {response.status_code}")
         except Exception as e:
             st.error(f"Connection Error: {e}")
 
@@ -52,18 +60,17 @@ with col2:
     
     # Fetch Visualization Data
     try:
+        # Use the dynamic URL
         viz_response = requests.get(f"{API_URL}/heat_map_data")
         if viz_response.status_code == 200:
             viz_data = pd.DataFrame(viz_response.json())
             
-            # STANDARD MAP (Stable)
-            # We scale the points by demand score to visualize hotspots
+            # STANDARD MAP
             st.map(viz_data, latitude='lat', longitude='lon', size=20, color='#FF4B4B')
-            
             st.caption("Red dots represent ride request clusters in the last hour.")
             
     except Exception as e:
-        st.warning("Start the backend API to see the live map.")
+        st.warning(f"Could not connect to Backend at {API_URL}. Is the API container running?")
 
 st.markdown("---")
-st.caption("Architecture: Streamlit UI -> FastAPI -> Scikit-Learn (RandomForest) + H3 Spatial Indexing")
+st.caption("Architecture: Docker Microservices (Streamlit + FastAPI)")
